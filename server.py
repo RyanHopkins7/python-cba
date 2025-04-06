@@ -143,6 +143,8 @@ def login():
     challenge_signature = bytes.fromhex(request.json["signed_challenge"])
 
     try:
+        # ONLY verifies certificate issuer name matches issuer subject name
+        # and certificate is signed by issuer's private key
         client_certificate.verify_directly_issued_by(server_certificate)
     except (ValueError, InvalidSignature):
         return jsonify({"result": "fail", "reason": "invalid_certificate"})
@@ -156,6 +158,10 @@ def login():
     
     challenge_data = app_data[common_name]["challenge"]
     challenge_expiration = app_data[common_name]["challenge_expires"]
+
+    # Invalidate challenge to prevent replay
+    del app_data[common_name]["challenge"]
+    del app_data[common_name]["challenge_expires"]
 
     if challenge_expiration < datetime.datetime.now():
         return jsonify({"result": "fail", "reason": "challenge_expired"})

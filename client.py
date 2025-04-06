@@ -9,7 +9,7 @@ import json
 # Usage: python client.py http://server-ip:port
 if __name__ == "__main__":
     server = sys.argv[1]
-    username = "alice"
+    username = "bob"
     password = "p@55w0rd"
 
     print("Register account")
