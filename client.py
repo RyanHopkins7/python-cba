@@ -9,7 +9,7 @@ import json
 # Usage: python client.py http://server-ip:port
 if __name__ == "__main__":
     server = sys.argv[1]
-    username = "bob"
+    username = "alice"
     password = "p@55w0rd"
 
     print("Register account")
@@ -25,9 +25,29 @@ if __name__ == "__main__":
     ).sign(client_key, None)
 
     print("Send CSR to server")
-    r = requests.post(server + "/auth/csr", json={
+    r = requests.post(server + "/csr", json={
         "username": username, 
         "password": password,
         "csr": csr.public_bytes(Encoding.PEM).decode("utf-8")
+    })
+    print(json.dumps(r.json(), indent=4))
+
+    client_certificate = x509.load_pem_x509_certificate(r.json()["certificate"].encode("utf-8"))
+    
+    print("Requesting server challenge")
+    r = requests.post(server + "/challenge", json={
+        "username": username
+    })
+    print(json.dumps(r.json(), indent=4))
+
+    print("Signing challenge using client key")
+    challenge = bytes.fromhex(r.json()["challenge"])
+    challenge_signature = client_key.sign(challenge).hex()
+
+    print("Sending signed challenge to server")
+    r = requests.post(server + "/login", json={
+        "username": username, 
+        "certificate": client_certificate.public_bytes(Encoding.PEM).decode("utf-8"),
+        "signed_challenge": challenge_signature
     })
     print(json.dumps(r.json(), indent=4))
