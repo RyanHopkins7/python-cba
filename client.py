@@ -4,6 +4,7 @@ from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives.serialization import Encoding
 import sys
 import requests
+import json
 
 # Usage: python client.py http://server-ip:port
 if __name__ == "__main__":
@@ -13,7 +14,7 @@ if __name__ == "__main__":
 
     print("Register account")
     r = requests.post(server + "/register", json={"username": username, "password": password})
-    print(r.json())
+    print(json.dumps(r.json(), indent=4))
 
     print("Generate client key and CSR")
     client_key = Ed25519PrivateKey.generate()
@@ -29,4 +30,4 @@ if __name__ == "__main__":
         "password": password,
         "csr": csr.public_bytes(Encoding.PEM).decode("utf-8")
     })
-    print(r.json())
+    print(json.dumps(r.json(), indent=4))

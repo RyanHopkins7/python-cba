@@ -1,9 +1,12 @@
 from flask import Flask, request, jsonify
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
+from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.exceptions import InvalidKey
+from cryptography.x509.oid import NameOID
 from cryptography import x509
 import os
+import datetime
 
 server_key = Ed25519PrivateKey.generate()
 argon2_params = {
@@ -58,4 +61,27 @@ def csr():
     except InvalidKey:
         return jsonify({"result": "fail", "reason": "invalid_password"})
     
-    return jsonify({"result": "sucess"})
+    if not csr.is_signature_valid:
+        return jsonify({"result": "fail", "reason": "invalid_csr_signature"})
+    
+    common_name = csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+    if common_name != username:
+        return jsonify({"result": "fail", "reason": "invalid_common_name"})
+    
+    one_day = datetime.timedelta(1, 0, 0)
+    builder = x509.CertificateBuilder().subject_name(x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, username),
+    ]))
+    builder = builder.issuer_name(x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
+    ]))
+    builder = builder.not_valid_before(datetime.datetime.today() - one_day)
+    builder = builder.not_valid_after(datetime.datetime.today() + (one_day * 30))
+    builder = builder.serial_number(x509.random_serial_number())
+    builder = builder.public_key(csr.public_key())
+    builder = builder.add_extension(
+        x509.BasicConstraints(ca=False, path_length=None), critical=True,
+    )
+    certificate = builder.sign(server_key, None)
+    
+    return jsonify({"result": "sucess", "certificate": certificate.public_bytes(Encoding.PEM).decode("utf-8")})
